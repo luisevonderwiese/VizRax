@@ -2,3 +2,4 @@ pygame
 pygame-menu
 ete3
 pyqt5
+pillow

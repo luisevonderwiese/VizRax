@@ -6,6 +6,8 @@ import time
 
 from ete3 import Tree
 from ete3.treeview import faces, TreeStyle
+from PIL import Image, ImageOps
+
 
 import numpy as np
 import pygame_menu as pm
@@ -45,6 +47,17 @@ def pictogram(node):
     node.img_style["vt_line_width"] = 2
 
 
+def resize_with_padding(path, expected_size):
+    img = Image.open(path)
+    delta_width = expected_size - img.size[0]
+    delta_height = expected_size - img.size[1]
+    pad_width = delta_width // 2
+    pad_height = delta_height // 2
+    padding = (pad_width, pad_height, delta_width - pad_width, delta_height - pad_height)
+    img = ImageOps.expand(img, padding, fill = (255, 255, 255))
+    img.save(path)
+
+
 def draw_tree(path):
     t = Tree(path)
     ts = TreeStyle()
@@ -53,9 +66,9 @@ def draw_tree(path):
     ts.show_scale = False
     ts.scale = (2000 * 8) / height(t)
     ts.branch_vertical_margin = 50
-    ts.margin_left = ts.margin_right = ts.margin_top = ts.margin_bottom = 250
     path = os.path.join("temp", "tree.png")
     t.render(path, w=2000, tree_style = ts)
+    resize_with_padding(path, 2500)
 
     ts = TreeStyle()
     ts.layout_fn = pictogram
@@ -63,9 +76,9 @@ def draw_tree(path):
     ts.show_scale = False
     ts.scale = (200 * 8) / height(t)
     ts.branch_vertical_margin = 10
-    ts.margin_left = ts.margin_right = ts.margin_top = ts.margin_bottom = 10
     path = os.path.join("temp", "thumbnail.png")
     t.render(path, w=180, tree_style = ts)
+    resize_with_padding(path, 200)
 
 
 
