@@ -4,8 +4,9 @@ import shutil
 import math
 import time
 
-from ete3 import Tree, faces, TreeStyle
-import cv2
+from ete3 import Tree
+from ete3.treeview import faces, TreeStyle
+
 import numpy as np
 import pygame_menu as pm
 
@@ -44,23 +45,6 @@ def pictogram(node):
     node.img_style["vt_line_width"] = 2
 
 
-def padd_image(path, size):
-    # read image
-    img = cv2.imread(path)
-    old_image_height, old_image_width, channels = img.shape
-    new_image_width = size
-    new_image_height = size
-    color = (255,255,255)
-    result = np.full((new_image_height,new_image_width, channels), color, dtype=np.uint8)
-
-    x_center = (new_image_width - old_image_width) // 2
-    y_center = (new_image_height - old_image_height) // 2
-
-    result[y_center:y_center+old_image_height, x_center:x_center+old_image_width] = img
-    cv2.imwrite(path, result)
-
-
-
 def draw_tree(path):
     t = Tree(path)
     ts = TreeStyle()
@@ -69,9 +53,9 @@ def draw_tree(path):
     ts.show_scale = False
     ts.scale = (2000 * 8) / height(t)
     ts.branch_vertical_margin = 50
+    ts.margin_left = ts.margin_right = ts.margin_top = ts.margin_bottom = 250
     path = os.path.join("temp", "tree.png")
     t.render(path, w=2000, tree_style = ts)
-    padd_image(path, 2500)
 
     ts = TreeStyle()
     ts.layout_fn = pictogram
@@ -79,9 +63,9 @@ def draw_tree(path):
     ts.show_scale = False
     ts.scale = (200 * 8) / height(t)
     ts.branch_vertical_margin = 10
+    ts.margin_left = ts.margin_right = ts.margin_top = ts.margin_bottom = 10
     path = os.path.join("temp", "thumbnail.png")
     t.render(path, w=180, tree_style = ts)
-    padd_image(path, 200)
 
 
 
