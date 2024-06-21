@@ -1,0 +1,93 @@
+
+RAxML-NG v. 1.2.0 released on 09.05.2023 by The Exelixis Lab.
+Developed by: Alexey M. Kozlov and Alexandros Stamatakis.
+Contributors: Diego Darriba, Tomas Flouri, Benoit Morel, Sarah Lutteropp, Ben Bettisworth, Julia Haag, Anastasis Togkousidis.
+Latest version: https://github.com/amkozlov/raxml-ng
+Questions/problems/suggestions? Please visit: https://groups.google.com/forum/#!forum/raxml
+
+System: 13th Gen Intel(R) Core(TM) i7-1355U, 10 cores, 31 GB RAM
+
+RAxML-NG was called at 21-Jun-2024 15:50:28 as follows:
+
+./raxml-ng --tree rand{1} --model GTR+G --msa msa/animal.phy --prefix temp/generate --seed 1 --threads auto --redo
+
+Analysis options:
+  run mode: ML tree search
+  start tree(s): random (1)
+  random seed: 1
+  tip-inner: OFF
+  pattern compression: ON
+  per-rate scalers: OFF
+  site repeats: ON
+  logLH epsilon: general: 10.000000, brlen-triplet: 1000.000000
+  fast spr radius: AUTO
+  spr subtree cutoff: 1.000000
+  fast CLV updates: ON
+  branch lengths: proportional (ML estimate, algorithm: NR-FAST)
+  SIMD kernels: AVX2
+  parallelization: coarse-grained (auto), PTHREADS (auto)
+
+WARNING: Running in REDO mode: existing checkpoints are ignored, and all result files will be overwritten!
+
+[00:00:00] Reading alignment from file: msa/animal.phy
+[00:00:00] Loaded alignment with 7 taxa and 28 sites
+
+Alignment comprises 1 partitions and 17 patterns
+
+Partition 0: noname
+Model: GTR+FO+G4m
+Alignment sites / patterns: 28 / 17
+Gaps: 0.00 %
+Invariant sites: 42.86 %
+
+
+NOTE: Binary MSA file created: temp/generate.raxml.rba
+
+Parallelization scheme autoconfig: 1 worker(s) x 1 thread(s)
+
+[00:00:00] Generating 1 random starting tree(s) with 7 taxa
+Parallel reduction/worker buffer size: 1 KB  / 0 KB
+
+[00:00:00] Data distribution: max. partitions/sites/weight per thread: 1 / 17 / 272
+[00:00:00] Data distribution: max. searches per worker: 1
+
+Starting ML tree search with 1 distinct starting trees
+
+[00:00:00 -138.395973] Initial branch length optimization
+[00:00:00 -113.167893] Model parameter optimization (eps = 10.000000)
+[00:00:00 -107.574701] AUTODETECT spr round 1 (radius: 5)
+[00:00:00 -100.486015] SPR radius for FAST iterations: 5 (autodetect)
+[00:00:00 -100.486015] Model parameter optimization (eps = 3.000000)
+[00:00:00 -99.506617] FAST spr round 1 (radius: 5)
+[00:00:00 -99.506147] Model parameter optimization (eps = 1.000000)
+[00:00:00 -99.082298] SLOW spr round 1 (radius: 5)
+[00:00:00 -99.082296] Model parameter optimization (eps = 0.100000)
+
+[00:00:00] ML tree search #1, logLikelihood: -99.036488
+
+
+Optimized model parameters:
+
+   Partition 0: noname
+   Rate heterogeneity: GAMMA (4 cats, mean),  alpha: 99.888120 (ML),  weights&rates: (0.250000,0.875838) (0.250000,0.964718) (0.250000,1.029564) (0.250000,1.129880) 
+   Base frequencies (ML): 0.290419 0.283571 0.199826 0.226185 
+   Substitution rates (ML): 13.200222 40.317759 73.021008 6.947320 68.947415 1.000000 
+
+
+Final LogLikelihood: -99.036488
+
+AIC score: 238.072975 / AICc score: 358.072975 / BIC score: 264.717066
+Free parameters (model + branch lengths): 20
+
+WARNING: Best ML tree contains 1 near-zero branches!
+
+Best ML tree with collapsed near-zero branches saved to: /home/haeusele/PhD/VizRax/temp/generate.raxml.bestTreeCollapsed
+Best ML tree saved to: /home/haeusele/PhD/VizRax/temp/generate.raxml.bestTree
+Optimized model saved to: /home/haeusele/PhD/VizRax/temp/generate.raxml.bestModel
+
+Execution log saved to: /home/haeusele/PhD/VizRax/temp/generate.raxml.log
+
+Analysis started: 21-Jun-2024 15:50:28 / finished: 21-Jun-2024 15:50:28
+
+Elapsed time: 0.010 seconds
+
