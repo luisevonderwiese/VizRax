@@ -307,7 +307,7 @@ s = Status()
 
 
 ############################## MAIN LOOP ##################################
-
+clock = pygame.time.Clock()
 while s.running:
     if s.example == "": #open menu at the beginning
         settings.mainloop(screen)
@@ -451,6 +451,8 @@ while s.running:
             #update thumbnails
             s.load_thumbnail(os.path.join("temp", "thumbnail.png"))
             s.current_index = s.current_index + 1
+    
+    clock.tick(60) 
 
 if os.path.isdir("temp"):
     shutil.rmtree("temp")
