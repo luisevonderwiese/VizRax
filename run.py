@@ -86,14 +86,11 @@ def draw_tree(path, example):
 
 
 def draw_thumbnails(screen, s):
-    max_thumbs_in_col = (SCREEN_HEIGHT - THUMB_MARGIN) // (THUMB_SIZE[1] + THUMB_MARGIN)
-    r = math.ceil(math.sqrt(s.num_trees))
-
     for i in range(s.num_trees):
-        row = i % r
-        col = i // r
-        x_pos = LEFT_WIDTH + col * (THUMB_SIZE[0] + THUMB_MARGIN) + THUMB_MARGIN
-        y_pos = row * (THUMB_SIZE[1] + THUMB_MARGIN) + THUMB_MARGIN
+        row = i % s.thumbs_in_row
+        col = i // s.thumbs_in_row
+        x_pos = LEFT_WIDTH + col * (s.thumb_size[0] + s.thumb_margin) + s.thumb_margin
+        y_pos = row * (s.thumb_size[1] + s.thumb_margin) + s.thumb_margin
         if i < len(s.thumbnails):
             thumbnail = s.thumbnails[i]
             screen.blit(thumbnail, (x_pos, y_pos))
@@ -103,7 +100,7 @@ def draw_thumbnails(screen, s):
                 color = (0, 0, 0)
         else:
             color = (180, 180, 180)
-        pygame.draw.rect(screen, color, (x_pos - 2, y_pos - 2, THUMB_SIZE[0] + 4, THUMB_SIZE[1] + 4), 2)
+        pygame.draw.rect(screen, color, (x_pos - 2, y_pos - 2, s.thumb_size[0] + 4, s.thumb_size[1] + 4), 2)
 
 def to_string(num):
     if num != num:
@@ -140,6 +137,28 @@ def draw_bar(screen, s):
     screen.blit(icons["menu"], icons["menu"].get_rect(center = menu_button.center))
 
 
+def refresh(screen, s):
+    screen.fill((255, 255, 255))
+    if s.image is not None:
+        screen.blit(s.image, (TREE_MARGIN, TREE_MARGIN))
+    draw_thumbnails(screen, s)
+    draw_bar(screen, s)
+    pygame.display.flip()
+
+def final_screen(screen, s):
+    screen.fill((255, 255, 255))
+    screen.blit(s.best_image, (TREE_MARGIN, TREE_MARGIN))
+    pygame.draw.rect(
+        screen,
+        GREEN_COLOR,
+        (TREE_MARGIN, TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN),
+        2  # Border thickness
+    )
+    draw_thumbnails(screen, s)
+    draw_bar(screen, s)
+    pygame.display.flip()
+
+
 ######################### DATA SETTINGS #######################################
 
 all_examples = [("Animals", "animal"), ("Languages", "language"), ("Horses", "horse")]
@@ -174,13 +193,8 @@ BUTTON_SIZE = int(min(SCREEN_WIDTH, SCREEN_HEIGHT) / 20)
 
 LEFT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
 RIGHT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
+TREE_MARGIN = LEFT_WIDTH * 0.1
 
-
-def get_thumb_sizes(num_trees):
-    r = math.ceil(math.sqrt(num_trees))
-    thumb_full_size = int(RIGHT_WIDTH / r)
-    ts = int(thumb_full_size * 0.8)
-    return (ts, ts), thumb_full_size - ts
 
 
 
@@ -257,6 +271,10 @@ class Status:
         self.image = None
         self.thumbnails = []
 
+        self.thumbs_in_row = float("nan")
+        self.thumb_size = float("nan")
+        self.thumb_margin = float("nan")
+
     def set_input_data(self, new_data):
         changed = False
         new_data = settings.get_input_data()
@@ -268,6 +286,11 @@ class Status:
             changed = True
         if new_data["num_trees"] != self.num_trees:
             self.num_trees = int(new_data["num_trees"])
+            self.thumbs_in_row = math.ceil(math.sqrt(self.num_trees))
+            thumb_full_size = int(RIGHT_WIDTH / self.thumbs_in_row)
+            ts = int(thumb_full_size * 0.8)
+            self.thumb_size = (ts, ts)
+            self.thumb_margin = thumb_full_size - ts
             changed = True
         return changed
 
@@ -285,7 +308,7 @@ class Status:
 
     def load_image(self, path):
         self.image = pygame.image.load(path)
-        self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*THUMB_MARGIN, LEFT_WIDTH - 2 * THUMB_MARGIN))
+        self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
 
     def update_llh(self, llh):
         self.llh = llh
@@ -296,29 +319,25 @@ class Status:
 
     def load_thumbnail(self, path):
         new_thumbnail = pygame.image.load(path)
-        new_thumbnail = pygame.transform.smoothscale(new_thumbnail, THUMB_SIZE)
+        new_thumbnail = pygame.transform.smoothscale(new_thumbnail, self.thumb_size)
         self.thumbnails.append(new_thumbnail)
 
 
 
 
-s = Status()
-
-
-
 ############################## MAIN LOOP ##################################
+
+
+s = Status()
 clock = pygame.time.Clock()
+
 while s.running:
     if s.example == "": #open menu at the beginning
         settings.mainloop(screen)
         s.set_input_data(settings.get_input_data())
         init_dir()
 
-        screen.fill((255, 255, 255))
-        THUMB_SIZE, THUMB_MARGIN = get_thumb_sizes(s.num_trees)
-        draw_thumbnails(screen, s)
-        draw_bar(screen, s)
-        pygame.display.flip()
+        refresh(screen, s)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -358,27 +377,13 @@ while s.running:
                 if changed:
                     init_dir()
                     s.restart()
-                    s.paused = True
-                    screen.fill((255, 255, 255))
-                    THUMB_SIZE, THUMB_MARGIN = get_thumb_sizes(s.num_trees)
-                else:
-                    # paused after settings call
-                    s.paused = True
-                    screen.fill((255, 255, 255))
-                    if s.image is not None:
-                        screen.blit(s.image, (THUMB_MARGIN, THUMB_MARGIN))
-                draw_thumbnails(screen, s)
-                draw_bar(screen, s)
-                pygame.display.flip()
+                s.paused = True
+                refresh(screen, s)
 
     if not s.paused and not s.done:
         if s.current_index == s.num_trees:
             if s.autoplay:
-                screen.fill((255, 255, 255))
-                screen.blit(s.image, (0, 0))
-                draw_thumbnails(screen, s)
-                draw_bar(screen, s)
-                pygame.display.flip()
+                refresh(screen, s)
                 #restart
                 r = pygame.draw.rect(screen, (255, 255, 255), pause_button)
                 screen.blit(icons["pause"], icons["pause"].get_rect(center = pause_button.center))
@@ -388,17 +393,8 @@ while s.running:
             else:
                 #show final screen
                 s.done = True
-                screen.fill((255, 255, 255))
-                screen.blit(s.best_image, (THUMB_MARGIN, THUMB_MARGIN))
-                pygame.draw.rect(
-                    screen,
-                    GREEN_COLOR,
-                    (THUMB_MARGIN, THUMB_MARGIN, LEFT_WIDTH - 2 * THUMB_MARGIN, LEFT_WIDTH - 2 * THUMB_MARGIN),
-                    2  # Border thickness
-                    )
-                draw_thumbnails(screen, s)
-                draw_bar(screen, s)
-                pygame.display.flip()
+                final_screen(screen, s)
+
         else:
 
             #generate tree
@@ -416,12 +412,7 @@ while s.running:
             #draw tree
             draw_tree(os.path.join("temp", "generate.raxml.startTree"), s.example)
             s.load_image(os.path.join("temp", "tree.png"))
-            screen.fill((255, 255, 255))
-            screen.blit(s.image, (THUMB_MARGIN, THUMB_MARGIN))
-            draw_thumbnails(screen, s)
-            draw_bar(screen, s)
-            pygame.display.flip()
-
+            refresh(screen, s)
 
             #evaluate tree
             command = "./raxml-ng --evaluate "
@@ -450,9 +441,11 @@ while s.running:
 
             #update thumbnails
             s.load_thumbnail(os.path.join("temp", "thumbnail.png"))
+            refresh(screen, s)
+            clock.tick(60)
             s.current_index = s.current_index + 1
-    
-    clock.tick(60) 
+
+    clock.tick(60)
 
 if os.path.isdir("temp"):
     shutil.rmtree("temp")
