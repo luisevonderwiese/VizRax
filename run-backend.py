@@ -12,8 +12,8 @@ from aiomqtt import Client, MqttError
 
 import numpy as np
 
-temp_dir="temp"
-#temp_dir="/dev/shm/rxviz-temp"
+#temp_dir="temp"
+temp_dir="/dev/shm/rxviz-temp"
 
 
 class Status:
@@ -170,26 +170,32 @@ class RaxmlRunner:
 
     stdout, stderr = await proc.communicate()
 
-  async def run_eval(self):
+  async def run_generate(self):
     #generate tree
     command = "./raxml-ng --start"
-    command += " --tree " + s.tree_mode + "{1}"
+    command += " --tree " + s.tree_mode + "{"+ str(s.num_trees) + "}"
     command += " --model " + models[s.example]
     command += " --msa " + os.path.join("msa", s.example + ".phy")
     command += " --prefix " + os.path.join(temp_dir, "generate")
     command += " --seed " + str(s.current_index)
     command += " --threads auto --redo"
-    t0 = time.time()
     await self.async_run(command)
-    t1 = time.time()
 
+    idx = 0
+    with open(os.path.join(temp_dir, "generate.raxml.startTree"), "r") as treefile:
+      for line in treefile:
+        with open(os.path.join(temp_dir, "generate.raxml.startTree." + str(idx)), "w") as outfile:
+          outfile.write(line)
+        idx += 1
+ 
+  async def run_eval(self):
     #evaluate tree
     command = "./raxml-ng --evaluate "
     command += " --msa " + os.path.join("msa", s.example + ".phy")
-    command += " --tree " + os.path.join(temp_dir, "generate.raxml.startTree")
+    command += " --tree " + os.path.join(temp_dir, "generate.raxml.startTree." + str(s.current_index))
     command += " --model " + models[s.example]
     command += " --prefix " + os.path.join(temp_dir, "evaluate")
-    command += " --seed 2 --threads auto --lh-epsilon 0.001 --extra compat-v11 --redo"
+    command += " --seed 2 --threads auto --lh-epsilon 0.1 --extra compat-v11 --redo"
     await self.async_run(command)
 
   async def parse_output(self):
@@ -233,6 +239,7 @@ class RaxmlRunner:
         s.restart()
       elif data["cmd"] == "settings":
         s.set_input_data(data)
+        await self.run_generate()
 
   async def spin(self):
     while s.running:
