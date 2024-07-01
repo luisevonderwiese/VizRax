@@ -69,30 +69,34 @@ def resize_with_padding(path, expected_size):
     img.save(path)
 
 
-def draw_tree(newick, example):
+def draw_tree(newick, example, s):
     t = Tree(newick)
     ts = TreeStyle()
     ts.layout_fn = lambda node : fancy(node, example)
     ts.show_leaf_name = False
     ts.show_scale = False
-    ts.scale = (TREE_PNG_WIDTH * 8) / height(t)
+    ts.force_topology = True
+    TREE_PNG_SIZE = LEFT_WIDTH*0.9
+    ts.scale = (TREE_PNG_SIZE * 1) / height(t)
     ts.branch_vertical_margin = 50
     path = os.path.join(temp_dir, "tree.png")
     tt1 = time.time()
-    t.render(path, w=TREE_PNG_WIDTH, tree_style = ts)
+    t.render(path, w=TREE_PNG_SIZE, h=TREE_PNG_SIZE, tree_style = ts)
     tt2 = time.time()
-    print ("render time: ", tt2 - tt1)
+#    print ("render time: ", tt2 - tt1)
 #    resize_with_padding(path, 2500)
 
     ts = TreeStyle()
     ts.layout_fn = pictogram
     ts.show_leaf_name = False
     ts.show_scale = False
-    ts.scale = (200 * 8) / height(t)
+    ts.force_topology = True
+    ts.scale = (s.thumb_size[0] * 1) / height(t)
     ts.branch_vertical_margin = 10
     ts.margin_left = ts.margin_right = ts.margin_top = ts.margin_bottom = 10
     path = os.path.join(temp_dir, "thumbnail.png")
-    t.render(path, w=200, tree_style = ts)
+#    t.render(path, w=200, tree_style = ts)
+    t.render(path, w=s.thumb_size[0], h=s.thumb_size[1],  tree_style = ts)
 #    resize_with_padding(path, 200)
 
 
@@ -134,6 +138,9 @@ def draw_bar(screen, s):
         cursor += font.size("Current score: 10000000")[0]
         text_surface = font.render("Trees per Second: " + to_string(s.tps), True, (0, 0, 0))
         screen.blit(text_surface, (cursor, BAR_Y_POS))
+        cursor += font.size("Trees per Second: 10.000")[0]
+    text_surface = font.render("Time: " + to_string(s.time), True, (0, 0, 0))
+    screen.blit(text_surface, (cursor, BAR_Y_POS))
 
 
     pygame.draw.rect(screen, (255, 255, 255), pause_button)
@@ -194,12 +201,18 @@ def init_dir():
 ######################### SIZES ##################################################
 pygame.init()
 infoObject = pygame.display.Info()
-screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
+
+SCREEN_WIDTH = 1800
+SCREEN_HEIGHT = infoObject.current_h
+
+#screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+
 pygame.display.set_caption("VizRax")
 icon = pygame.image.load(os.path.join("icons", "horse.png"))
 pygame.display.set_icon(icon)
 
-SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
+#SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
 
 BAR_HEIGHT = int(SCREEN_HEIGHT * 0.2 * 0.8)
 BAR_MARGIN = int(SCREEN_HEIGHT * 0.2 * 0.2)
@@ -209,9 +222,10 @@ BUTTON_SIZE = int(min(SCREEN_WIDTH, SCREEN_HEIGHT) / 20)
 
 LEFT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
 RIGHT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
-TREE_MARGIN = LEFT_WIDTH * 0.1
+#TREE_MARGIN = LEFT_WIDTH * 0.1
+TREE_MARGIN = LEFT_WIDTH * 0.05
 
-
+#print(LEFT_WIDTH, RIGHT_WIDTH)
 
 
 #################### COLORS ####################
@@ -284,6 +298,7 @@ class Status:
         self.tps = float("nan")
         self.best_llh = float("nan")
         self.llh = float("nan")
+        self.time = 0
 
         self.image = None
         self.thumbnails = []
@@ -304,7 +319,7 @@ class Status:
         if new_data["num_trees"] != self.num_trees:
             self.num_trees = int(new_data["num_trees"])
             self.thumbs_in_row = math.ceil(math.sqrt(self.num_trees))
-            thumb_full_size = int(RIGHT_WIDTH / self.thumbs_in_row)
+            thumb_full_size = int(RIGHT_WIDTH*0.9 / self.thumbs_in_row)
             ts = int(thumb_full_size * 0.8)
             self.thumb_size = (ts, ts)
             self.thumb_margin = thumb_full_size - ts
@@ -319,6 +334,7 @@ class Status:
         self.done = False
 
         self.current_index = 0
+        self.time = 0
         self.best_index = -1
         self.best_image = None
         self.tps = float("nan")
@@ -329,7 +345,7 @@ class Status:
 
     def load_image(self, path):
         self.image = pygame.image.load(path)
-        self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
+#        self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
 
     def update_llh(self, llh):
         self.llh = llh
@@ -338,9 +354,16 @@ class Status:
             self.best_index = self.current_index
             self.best_image = self.image
 
+    def update_from_msg(self, msg):
+        self.tree = msg["tree"]
+        self.tps = msg["tps"]
+        self.time += 1.0 / self.tps
+        llh = msg["llh"]
+        self.update_llh(llh)
+
     def load_thumbnail(self, path):
         new_thumbnail = pygame.image.load(path)
-        new_thumbnail = pygame.transform.smoothscale(new_thumbnail, self.thumb_size)
+#        new_thumbnail = pygame.transform.smoothscale(new_thumbnail, self.thumb_size)
         self.thumbnails.append(new_thumbnail)
 
 
@@ -439,7 +462,7 @@ def main():
             s.set_input_data(settings.get_input_data())
             stgs = s.get_input_data()
             stgs["cmd"] = "settings"
-            print(stgs)
+#            print(stgs)
             mqtt.put_msg(stgs)
             run_once(loop)
             init_dir()
@@ -516,18 +539,14 @@ def main():
                   continue
                 
 #                 print(msg)
-                
-                if msg:
-                  s.tree = msg["tree"]
-                  s.tps = msg["tps"]
-                  llh = msg["llh"]
-                  s.update_llh(llh)
-                  
+
+                s.update_from_msg(msg)
+                 
 #                execution_time = tt2 - tt1
 
                 #draw tree
                 tt1 = time.time()
-                draw_tree(s.tree, s.example)
+                draw_tree(s.tree, s.example, s)
                 s.load_image(os.path.join(temp_dir, "tree.png"))
                 refresh(screen, s)
                 tt2 = time.time()
