@@ -97,8 +97,8 @@ class MQTTClient(object):
     self.port = config.get("mqtt_port", 1883)
     self.username = config.get("mqtt_user", None)
     self.password = config.get("mqtt_password", None)
-    self.sub_topic = config.get("sub_topic", "raxviz/command")
-    self.pub_topic = config.get("pub_topic", "raxviz/status")
+    self.sub_topic = config.get("cmd_topic", "raxviz/command")
+    self.pub_topic = config.get("upd_topic", "raxviz/status")
     self.pub_fields = config.get("pubfields", None)
     if self.pub_fields:
       self.pub_fields = self.pub_fields.split(",")
@@ -131,7 +131,9 @@ class MQTTClient(object):
       return
     await client.subscribe(self.sub_topic)
     async for message in client.messages:
-      self.recv_queue.put_nowait(message.payload)
+      data = json.loads(message.payload)
+      print(data)
+      self.recv_queue.put_nowait(data)
     
   async def handle_pub(self, client):
     if not self.pub_topic:
@@ -170,7 +172,7 @@ class RaxmlRunner:
 
   async def run_eval(self):
     #generate tree
-    command = "./raxml-ng "
+    command = "./raxml-ng --start"
     command += " --tree " + s.tree_mode + "{1}"
     command += " --model " + models[s.example]
     command += " --msa " + os.path.join("msa", s.example + ".phy")
@@ -184,7 +186,7 @@ class RaxmlRunner:
     #evaluate tree
     command = "./raxml-ng --evaluate "
     command += " --msa " + os.path.join("msa", s.example + ".phy")
-    command += " --tree " + os.path.join(temp_dir, "generate.raxml.bestTree")
+    command += " --tree " + os.path.join(temp_dir, "generate.raxml.startTree")
     command += " --model " + models[s.example]
     command += " --prefix " + os.path.join(temp_dir, "evaluate")
     command += " --seed 2 --threads auto --lh-epsilon 0.001 --extra compat-v11 --redo"
@@ -208,6 +210,8 @@ class RaxmlRunner:
     s.update_llh(llh)
     s.tps = 1.0 / rt
     s.current_index = s.current_index + 1
+    if s.current_index == s.num_trees:
+      s.done = True
 
   async def send_mqtt(self):
     data = {}
@@ -215,15 +219,30 @@ class RaxmlRunner:
     data["tps"] = s.tps
     data["tree"] = s.tree
     self.mqtt.put_msg(data)
-    
+
+  async def process_commands(self):
+    data = self.mqtt.get_msg()
+#    print(data)
+    if data:
+      print(data["cmd"])
+      if data["cmd"] == "start":
+        s.paused = False
+      elif data["cmd"] == "pause":
+        s.paused = True
+      elif data["cmd"] == "restart":
+        s.restart()
+      elif data["cmd"] == "settings":
+        s.set_input_data(data)
 
   async def spin(self):
-    await asyncio.sleep(2)  
     while s.running:
+      await self.process_commands()
       if not s.paused and not s.done:
         await self.run_eval()
         await self.parse_output()
         await self.send_mqtt()
+      else:
+        await asyncio.sleep(0.05)
 
 ############################## MAIN ##################################
 
@@ -248,7 +267,6 @@ async def main():
     
     settings = { "example": "animal", "tree_mode": "rand", "num_trees": 100}
     s.set_input_data(settings)
-    s.paused = False
     
     spins = [mqtt.spin(), rax.spin()]
     tasks = [asyncio.create_task(t) for t in spins]
