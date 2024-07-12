@@ -17,10 +17,21 @@ from aiomqtt import Client, MqttError
 import numpy as np
 import pygame_menu as pm
 
+from PyQt5.QtGui import QImage
+
+orig_qimage_save = QImage.save
+
+def new_save(self, fileName, format=None, quality=None):
+#  print("monkey patched!")  
+  if not quality:
+    quality = 100
+  orig_qimage_save(self, fileName, format, quality)
+  
+QImage.save = new_save
+  
 #temp_dir="temp"
 temp_dir="/dev/shm/rxviz-temp"
 example_faces = {}
-TREE_PNG_WIDTH=1000
 
 ################### TREE DRAWING ############################################################
 def height(tree):
@@ -42,8 +53,8 @@ def fancy(node, example):
     # If node is a leaf, add the nodes name and a its scientific
     # name
     if node.is_leaf():
-#        faces.add_face_to_node(faces.ImgFace(os.path.join("imgs", example, node.name + ".png")), node, column=0)
-        faces.add_face_to_node(example_faces[node.name], node, column=0)
+        faces.add_face_to_node(faces.ImgFace(os.path.join("imgs", example, node.name + ".png")), node, column=0)
+#        faces.add_face_to_node(example_faces[node.name], node, column=0)
     #node.img_style["size"] = 50
     #node.img_style["shape"] = "circle"
     #node.img_style["fgcolor"] = "#000000"
@@ -136,9 +147,12 @@ def draw_bar(screen, s):
         text_surface = font.render("Current score: " + to_string(s.llh), True, (0, 0, 0))
         screen.blit(text_surface, (cursor, BAR_Y_POS))
         cursor += font.size("Current score: 10000000")[0]
-        text_surface = font.render("Trees per Second: " + to_string(s.tps), True, (0, 0, 0))
-        screen.blit(text_surface, (cursor, BAR_Y_POS))
-        cursor += font.size("Trees per Second: 10.000")[0]
+        tps = s.tps
+    else:
+        tps = s.num_trees / s.time
+    text_surface = font.render("Trees per Second: " + to_string(s.tps), True, (0, 0, 0))
+    screen.blit(text_surface, (cursor, BAR_Y_POS))
+    cursor += font.size("Trees per Second: 10.000")[0]
     text_surface = font.render("Time: " + to_string(s.time), True, (0, 0, 0))
     screen.blit(text_surface, (cursor, BAR_Y_POS))
 
@@ -202,7 +216,7 @@ def init_dir():
 pygame.init()
 infoObject = pygame.display.Info()
 
-SCREEN_WIDTH = 1800
+SCREEN_WIDTH = 1700
 SCREEN_HEIGHT = infoObject.current_h
 
 #screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
@@ -229,8 +243,7 @@ TREE_MARGIN = LEFT_WIDTH * 0.05
 
 
 #################### COLORS ####################
-GREEN_COLOR = (99, 224, 49)  # Green color for the box around thumbnails
-
+GREEN_COLOR = (0, 180, 0)  # Green color for the box around thumbnails
 
 ################## FONTS ######################################
 pygame.font.init()
@@ -266,7 +279,7 @@ settings._theme.widget_alignment = pm.locals.ALIGN_LEFT
 
 settings.add.dropselect(title="Example:", items=all_examples, default = 0, dropselect_id="example")
 settings.add.dropselect(title="Tree Mode:", items=[("Random", "rand"), ("Parsimony", "pars")], default = 0, dropselect_id="tree_mode")
-settings.add.range_slider(title="Number of Trees:", default=100, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
+settings.add.range_slider(title="Number of Trees:", default=64, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
 settings.add.button(title="START", action=close_menu, button_id = "start")
 settings.select_widget("start")
 
@@ -442,6 +455,14 @@ class MQTTClient(object):
 def run_once(loop):
     loop.call_soon(loop.stop)
     loop.run_forever()
+    
+def mqtt_settings(loop, mqtt, s):
+    stgs = s.get_input_data()
+    stgs["cmd"] = "settings"
+#    print(stgs)
+    mqtt.put_msg(stgs)
+    run_once(loop)
+    
 
 def main():
     s = Status()
@@ -453,24 +474,24 @@ def main():
     
     loop = asyncio.new_event_loop()
     t1 = loop.create_task(mqtt.spin())
+    run_once(loop)
+
+    if s.example == "": #open menu at the beginning
+        settings.mainloop(screen)
+        s.set_input_data(settings.get_input_data())
+        mqtt_settings(loop, mqtt, s)
+        init_dir()
+        
+        for name in example_names:
+          example_faces[name] = faces.ImgFace(os.path.join("imgs", s.example, name + ".png"))
+
+        refresh(screen, s)
+
+    mqtt.put_msg({"cmd": "restart"})
 
     while s.running:
         run_once(loop)
         clock.tick(60)
-        if s.example == "": #open menu at the beginning
-            settings.mainloop(screen)
-            s.set_input_data(settings.get_input_data())
-            stgs = s.get_input_data()
-            stgs["cmd"] = "settings"
-#            print(stgs)
-            mqtt.put_msg(stgs)
-            run_once(loop)
-            init_dir()
-            
-            for name in example_names:
-              example_faces[name] = faces.ImgFace(os.path.join("imgs", s.example, name + ".png"))
-
-            refresh(screen, s)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -511,6 +532,7 @@ def main():
                     settings.mainloop(screen)
                     changed = s.set_input_data(settings.get_input_data())
                     if changed:
+                        mqtt_settings(loop, mqtt, s)
                         init_dir()
                         s.restart()
                     s.paused = True
