@@ -164,10 +164,16 @@ class Status:
         self.current_depth = 1
         self.image = None
         self.states = [State(0, -1, np.pi / 2, 1, 4)]
+        plt.clf()
+        plt.figure(figsize=(9, 8))
+        plt.axis('off')
+        ax = plt.gca()
+        ax.set_xlim([-2.5, 2.5])
+        ax.set_ylim([-1, 2.8])
 
     def load_image(self, path):
         self.image = pygame.image.load(path)
-        self.image = pygame.transform.smoothscale(self.image, (RIGHT_WIDTH / 2 + LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
+        #self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
 
 
 
@@ -214,7 +220,7 @@ while s.running:
                 pygame.display.update(r)
 
     if not s.paused and not s.done:
-        if s.current_depth == 12:
+        if s.current_depth == 16:
             if s.autoplay:
                 refresh(screen, s)
                 #restart
@@ -228,7 +234,6 @@ while s.running:
                 s.done = True
                 s.paused = True
                 refresh(screen, s)
-
         else:
 
             new_states = []
