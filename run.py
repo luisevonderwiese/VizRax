@@ -4,47 +4,27 @@ import shutil
 import math
 import time
 
-from ete3 import Tree
-from ete3.treeview import faces, TreeStyle
 from PIL import Image, ImageOps
 
 
 import numpy as np
 import pygame_menu as pm
+import matplotlib.pyplot as plt
 
 ################### TREE DRAWING ############################################################
-def height(tree):
-    return max(leaf_depths(tree))
 
-def depths_in_subtree(node, depth):
-    depths_below = []
-    for child in node.children:
-        if child.is_leaf():
-            depths_below.append(depth + 1)
-        else:
-            depths_below += depths_in_subtree(child, depth + 1)
-    return depths_below
 
-def leaf_depths(tree):
-    return depths_in_subtree(tree, 0)
+class State:
+    def __init__(self, x, y, angle, length, width):
+        self.x = x
+        self.y = y
+        self.angle = angle
+        self.length = length
+        self.width = width
 
-def fancy(node, example):
-    # If node is a leaf, add the nodes name and a its scientific
-    # name
-    if node.is_leaf():
-        faces.add_face_to_node(faces.ImgFace(os.path.join("imgs", example, node.name + ".png")), node, column=0)
-    #node.img_style["size"] = 50
-    #node.img_style["shape"] = "circle"
-    #node.img_style["fgcolor"] = "#000000"
-    node.img_style["hz_line_width"] = 10
-    node.img_style["vt_line_width"] = 10
+ANGLE_OFFSET = (27 * 2 * np.pi) / 360
 
-def pictogram(node):
-    node.img_style["size"] = 0
-    node.img_style["shape"] = "circle"
-    node.img_style["fgcolor"] = "#000000"
-    node.img_style["hz_line_width"] = 2
-    node.img_style["vt_line_width"] = 2
+
 
 
 def resize_with_padding(path, expected_size):
@@ -58,68 +38,13 @@ def resize_with_padding(path, expected_size):
     img.save(path)
 
 
-def draw_tree(path, example):
-    t = Tree(path)
-    ts = TreeStyle()
-    ts.layout_fn = lambda node : fancy(node, example)
-    ts.show_leaf_name = False
-    ts.show_scale = False
-    ts.scale = (2000 * 8) / height(t)
-    ts.branch_vertical_margin = 50
-    path = os.path.join("temp", "tree.png")
-    t.render(path, w=2000, tree_style = ts)
-    resize_with_padding(path, 2500)
-
-    ts = TreeStyle()
-    ts.layout_fn = pictogram
-    ts.show_leaf_name = False
-    ts.show_scale = False
-    ts.scale = (200 * 8) / height(t)
-    ts.branch_vertical_margin = 10
-    path = os.path.join("temp", "thumbnail.png")
-    t.render(path, w=180, tree_style = ts)
-    resize_with_padding(path, 200)
-
 
 
 ######################## UI FUNCTIONS ##################################
 
 
-def draw_thumbnails(screen, s):
-    for i in range(s.num_trees):
-        row = i % s.thumbs_in_row
-        col = i // s.thumbs_in_row
-        x_pos = LEFT_WIDTH + col * (s.thumb_size[0] + s.thumb_margin) + s.thumb_margin
-        y_pos = row * (s.thumb_size[1] + s.thumb_margin) + s.thumb_margin
-        if i < len(s.thumbnails):
-            thumbnail = s.thumbnails[i]
-            screen.blit(thumbnail, (x_pos, y_pos))
-            if i == s.best_index:
-                color = GREEN_COLOR
-            else:
-                color = (0, 0, 0)
-        else:
-            color = (180, 180, 180)
-        pygame.draw.rect(screen, color, (x_pos - 2, y_pos - 2, s.thumb_size[0] + 4, s.thumb_size[1] + 4), 2)
-
-def to_string(num):
-    if num != num:
-        return ""
-    else:
-        return str(round(num, 1))
-
 def draw_bar(screen, s):
     cursor = BAR_MARGIN
-    text_surface = font.render("Best score: " + to_string(s.best_llh), True, GREEN_COLOR)
-    screen.blit(text_surface, (cursor, BAR_Y_POS))
-    cursor += font.size("Best score: 10000000")[0]
-    if not s.done:
-        text_surface = font.render("Current score: " + to_string(s.llh), True, (0, 0, 0))
-        screen.blit(text_surface, (cursor, BAR_Y_POS))
-        cursor += font.size("Current score: 10000000")[0]
-        text_surface = font.render("Trees per Second: " + to_string(s.tps), True, (0, 0, 0))
-        screen.blit(text_surface, (cursor, BAR_Y_POS))
-
 
     pygame.draw.rect(screen, (255, 255, 255), pause_button)
     if s.done:
@@ -133,36 +58,19 @@ def draw_bar(screen, s):
         screen.blit(icons["infinity"], icons["infinity"].get_rect(center = autoplay_button.center))
     else:
         screen.blit(icons["no_infinity"], icons["no_infinity"].get_rect(center = autoplay_button.center))
-    pygame.draw.rect(screen, (255, 255, 255), menu_button)
-    screen.blit(icons["menu"], icons["menu"].get_rect(center = menu_button.center))
 
 
 def refresh(screen, s):
     screen.fill((255, 255, 255))
     if s.image is not None:
         screen.blit(s.image, (TREE_MARGIN, TREE_MARGIN))
-    draw_thumbnails(screen, s)
     draw_bar(screen, s)
     pygame.display.flip()
 
-def final_screen(screen, s):
-    screen.fill((255, 255, 255))
-    screen.blit(s.best_image, (TREE_MARGIN, TREE_MARGIN))
-    pygame.draw.rect(
-        screen,
-        GREEN_COLOR,
-        (TREE_MARGIN, TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN),
-        2  # Border thickness
-    )
-    draw_thumbnails(screen, s)
-    draw_bar(screen, s)
-    pygame.display.flip()
 
 
 ######################### DATA SETTINGS #######################################
 
-all_examples = [("Animals", "animal"), ("Languages", "language"), ("Horses", "horse")]
-models = {"language" : "BIN+G", "animal" : "GTR+G", "horse" : "GTR+G"}
 
 
 def init_dir():
@@ -222,23 +130,6 @@ icons["no_infinity"] = icon
 ############# BUTTONS #####################
 pause_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (4 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
 autoplay_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (2.5 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
-menu_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - BUTTON_SIZE), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
-
-################### MENU #############################
-def close_menu():
-    settings.disable()
-
-theme = pm.Theme(widget_font=font, widget_margin = (SCREEN_WIDTH*0.08, 0.0))
-settings = pm.Menu(title="Settings", width=SCREEN_WIDTH*0.8, height=SCREEN_HEIGHT*0.8, theme = theme)
-settings._theme.widget_font_color = (0, 0, 0)
-settings._theme.widget_alignment = pm.locals.ALIGN_LEFT
-
-
-settings.add.dropselect(title="Example:", items=all_examples, default = 0, dropselect_id="example")
-settings.add.dropselect(title="Tree Mode:", items=[("Random", "rand"), ("Parsimony", "pars")], default = 0, dropselect_id="tree_mode")
-settings.add.range_slider(title="Number of Trees:", default=100, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
-settings.add.button(title="START", action=close_menu, button_id = "start")
-settings.select_widget("start")
 
 
 
@@ -257,70 +148,27 @@ class Status:
         self.done = False
         self.paused = True
 
-        self.example = ""
-        self.tree_mode = ""
-        self.num_trees = float("nan")
-
-        self.current_index = 0
-        self.best_index = -1
-        self.best_image = None
-        self.tps = float("nan")
-        self.best_llh = float("nan")
-        self.llh = float("nan")
-
+        self.current_depth = 1
         self.image = None
-        self.thumbnails = []
+        self.states = [State(0, -1, np.pi / 2, 1, 4)]
 
-        self.thumbs_in_row = float("nan")
-        self.thumb_size = float("nan")
-        self.thumb_margin = float("nan")
-
-    def set_input_data(self, new_data):
-        changed = False
-        new_data = settings.get_input_data()
-        if new_data["example"][0][1] != self.example:
-            self.example = new_data["example"][0][1]
-            changed = True
-        if new_data["tree_mode"][0][1] != self.tree_mode:
-            self.tree_mode = new_data["tree_mode"][0][1]
-            changed = True
-        if new_data["num_trees"] != self.num_trees:
-            self.num_trees = int(new_data["num_trees"])
-            self.thumbs_in_row = math.ceil(math.sqrt(self.num_trees))
-            thumb_full_size = int(RIGHT_WIDTH / self.thumbs_in_row)
-            ts = int(thumb_full_size * 0.8)
-            self.thumb_size = (ts, ts)
-            self.thumb_margin = thumb_full_size - ts
-            changed = True
-        return changed
+        plt.figure(figsize=(9, 8))
+        plt.axis('off')
+        ax = plt.gca()
+        ax.set_xlim([-2.5, 2.5])
+        ax.set_ylim([-1, 2.8])
 
     def restart(self):
         self.done = False
 
-        self.current_index = 0
-        self.best_index = -1
-        self.best_image = None
-        self.tps = float("nan")
-        self.best_llh = float("nan")
-        self.llh = float("nan")
+        self.current_depth = 1
         self.image = None
-        self.thumbnails = []
+        self.states = [State(0, -1, np.pi / 2, 1, 4)]
 
     def load_image(self, path):
         self.image = pygame.image.load(path)
-        self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
+        self.image = pygame.transform.smoothscale(self.image, (RIGHT_WIDTH / 2 + LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
 
-    def update_llh(self, llh):
-        self.llh = llh
-        if self.best_llh != self.best_llh or llh > self.best_llh:
-            self.best_llh = llh
-            self.best_index = self.current_index
-            self.best_image = self.image
-
-    def load_thumbnail(self, path):
-        new_thumbnail = pygame.image.load(path)
-        new_thumbnail = pygame.transform.smoothscale(new_thumbnail, self.thumb_size)
-        self.thumbnails.append(new_thumbnail)
 
 
 
@@ -330,15 +178,9 @@ class Status:
 
 s = Status()
 clock = pygame.time.Clock()
-
+init_dir()
+refresh(screen, s)
 while s.running:
-    if s.example == "": #open menu at the beginning
-        settings.mainloop(screen)
-        s.set_input_data(settings.get_input_data())
-        init_dir()
-
-        refresh(screen, s)
-
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             s.running = False
@@ -370,18 +212,9 @@ while s.running:
                     screen.blit(icons["infinity"], icons["infinity"].get_rect(center = autoplay_button.center))
                     s.autoplay = True
                 pygame.display.update(r)
-            if menu_button.collidepoint(pos):
-                settings.enable()
-                settings.mainloop(screen)
-                changed = s.set_input_data(settings.get_input_data())
-                if changed:
-                    init_dir()
-                    s.restart()
-                s.paused = True
-                refresh(screen, s)
 
     if not s.paused and not s.done:
-        if s.current_index == s.num_trees:
+        if s.current_depth == 12:
             if s.autoplay:
                 refresh(screen, s)
                 #restart
@@ -393,57 +226,24 @@ while s.running:
             else:
                 #show final screen
                 s.done = True
-                final_screen(screen, s)
+                s.paused = True
+                refresh(screen, s)
 
         else:
 
-            #generate tree
-            command = "./raxml-ng "
-            command += " --tree " + s.tree_mode + "{1}"
-            command += " --model " + models[s.example]
-            command += " --msa " + os.path.join("msa", s.example + ".phy")
-            command += " --prefix " + os.path.join("temp", "generate")
-            command += " --seed " + str(s.current_index)
-            command += " --threads auto --redo > " + os.path.join("temp", "out.txt")
-            t0 = time.time()
-            os.system(command)
-            t1 = time.time()
-
-            #draw tree
-            draw_tree(os.path.join("temp", "generate.raxml.startTree"), s.example)
+            new_states = []
+            for state in s.states:
+                new_x = state.x + state.length * np.cos(state.angle)
+                new_y = state.y + state.length * np.sin(state.angle)
+                plt.plot([state.x, new_x], [state.y, new_y], 'black', lw=state.width)
+                new_states.append(State(new_x, new_y, state.angle + ANGLE_OFFSET, state.length * 0.75, state.width * 0.75))
+                new_states.append(State(new_x, new_y, state.angle - ANGLE_OFFSET, state.length * 0.75, state.width * 0.75))
+            plt.savefig("temp/tree.png")
+            s.states = new_states
+            s.current_depth += 1
             s.load_image(os.path.join("temp", "tree.png"))
             refresh(screen, s)
 
-            #evaluate tree
-            command = "./raxml-ng --evaluate "
-            command += " --msa " + os.path.join("msa", s.example + ".phy")
-            command += " --tree " + os.path.join("temp", "generate.raxml.bestTree")
-            command += " --model " + models[s.example]
-            command += " --prefix " + os.path.join("temp", "evaluate")
-            command += " --seed 2 --threads auto --redo > " + os.path.join("temp", "out.txt")
-            t2 = time.time()
-            os.system(command)
-            t3 = time.time()
-
-            #execution_time = (t1 - t0) + (t3 - t2) #depends on what you want to measure
-            execution_time = t3 - t0
-            s.tps = 1.0 / execution_time
-
-            with open(os.path.join("temp", "evaluate.raxml.log"), "r") as logfile:
-                lines = logfile.readlines()
-            llh = float("nan")
-            for line in lines:
-                if line.startswith("Final LogLikelihood: "):
-                    llh = float(line.split(": ")[1])
-                    break
-            s.update_llh(llh)
-
-
-            #update thumbnails
-            s.load_thumbnail(os.path.join("temp", "thumbnail.png"))
-            refresh(screen, s)
-            clock.tick(60)
-            s.current_index = s.current_index + 1
 
     clock.tick(60)
 
