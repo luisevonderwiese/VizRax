@@ -5,6 +5,7 @@ import os
 import shutil
 import math
 import time
+import argparse
 
 from ete3 import Tree
 from ete3.treeview import faces, TreeStyle
@@ -207,81 +208,96 @@ def init_dir():
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir)
 
+def init_config():
+    parser = argparse.ArgumentParser(description="VizRax frontend")
+    parser.add_argument("--broker", type=str, default="localhost", dest="mqtt_host", help="Address of the MQTT server")
+    parser.add_argument("--width", type=int, default=argparse.SUPPRESS, help="Screen width in pixels")
+    parser.add_argument("--height", type=int, default=argparse.SUPPRESS, help="Screen height in pixels")
+    args = parser.parse_args()
+    
+    cfg = vars(args)
+#    cfg["mqtt_host"] = args.broker
+    return cfg
 
-
-
-
-
-######################### SIZES ##################################################
-pygame.init()
-infoObject = pygame.display.Info()
-
-SCREEN_WIDTH = 1700
-SCREEN_HEIGHT = infoObject.current_h
-
-#screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
-
-pygame.display.set_caption("VizRax")
-icon = pygame.image.load(os.path.join("icons", "horse.png"))
-pygame.display.set_icon(icon)
-
-#SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
-
-BAR_HEIGHT = int(SCREEN_HEIGHT * 0.2 * 0.8)
-BAR_MARGIN = int(SCREEN_HEIGHT * 0.2 * 0.2)
-BAR_Y_POS = SCREEN_HEIGHT - BAR_HEIGHT + BAR_MARGIN*0.5
-
-BUTTON_SIZE = int(min(SCREEN_WIDTH, SCREEN_HEIGHT) / 20)
-
-LEFT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
-RIGHT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
-#TREE_MARGIN = LEFT_WIDTH * 0.1
-TREE_MARGIN = LEFT_WIDTH * 0.05
-
-#print(LEFT_WIDTH, RIGHT_WIDTH)
-
-
-#################### COLORS ####################
-GREEN_COLOR = (0, 180, 0)  # Green color for the box around thumbnails
-
-################## FONTS ######################################
-pygame.font.init()
-font = pygame.font.Font(os.path.join("fonts", 'MiriamLibre-Regular.ttf'), 30)
-
-
-
-################# ICONS #################################
-icons = {}
-for icon_name in ["play", "pause", "resume", "infinity", "menu"]:
-    icon = pygame.image.load(os.path.join("icons", icon_name + ".png")).convert_alpha()
-    icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
-    icons[icon_name] = icon
-icon = pygame.image.load(os.path.join("icons", "infinity.png")).convert_alpha()
-icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
-icon.set_alpha(100)
-icons["no_infinity"] = icon
-
-############# BUTTONS #####################
-pause_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (4 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
-autoplay_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (2.5 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
-menu_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - BUTTON_SIZE), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
-
-################### MENU #############################
 def close_menu():
     settings.disable()
 
-theme = pm.Theme(widget_font=font, widget_margin = (SCREEN_WIDTH*0.08, 0.0))
-settings = pm.Menu(title="Settings", width=SCREEN_WIDTH*0.8, height=SCREEN_HEIGHT*0.8, theme = theme)
-settings._theme.widget_font_color = (0, 0, 0)
-settings._theme.widget_alignment = pm.locals.ALIGN_LEFT
+def init_pygame(cfg):
+    global SCREEN_WIDTH, SCREEN_HEIGHT, BAR_HEIGHT, BAR_MARGIN, BAR_Y_POS
+    global LEFT_WIDTH, RIGHT_WIDTH, TREE_MARGIN, screen
+    ######################### SIZES ##################################################
+    pygame.init()
+    infoObject = pygame.display.Info()
+
+    print(cfg)
+    SCREEN_WIDTH = cfg.get("width", infoObject.current_w)
+    SCREEN_HEIGHT = cfg.get("height", infoObject.current_h)
+
+    #screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+
+    pygame.display.set_caption("VizRax")
+    icon = pygame.image.load(os.path.join("icons", "horse.png"))
+    pygame.display.set_icon(icon)
+
+    #SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
+
+    BAR_HEIGHT = int(SCREEN_HEIGHT * 0.2 * 0.8)
+    BAR_MARGIN = int(SCREEN_HEIGHT * 0.2 * 0.2)
+    BAR_Y_POS = SCREEN_HEIGHT - BAR_HEIGHT + BAR_MARGIN*0.5
+
+    BUTTON_SIZE = int(min(SCREEN_WIDTH, SCREEN_HEIGHT) / 20)
+
+    LEFT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
+    RIGHT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
+    #TREE_MARGIN = LEFT_WIDTH * 0.1
+    TREE_MARGIN = LEFT_WIDTH * 0.05
+
+    #print(LEFT_WIDTH, RIGHT_WIDTH)
 
 
-settings.add.dropselect(title="Example:", items=all_examples, default = 0, dropselect_id="example")
-settings.add.dropselect(title="Tree Mode:", items=[("Random", "rand"), ("Parsimony", "pars")], default = 0, dropselect_id="tree_mode")
-settings.add.range_slider(title="Number of Trees:", default=64, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
-settings.add.button(title="START", action=close_menu, button_id = "start")
-settings.select_widget("start")
+    #################### COLORS ####################
+    global GREEN_COLOR
+    GREEN_COLOR = (0, 180, 0)  # Green color for the box around thumbnails
+
+    ################## FONTS ######################################
+    global font
+    pygame.font.init()
+    font = pygame.font.Font(os.path.join("fonts", 'MiriamLibre-Regular.ttf'), 30)
+
+
+
+    ################# ICONS #################################
+    global icons 
+    icons = {}
+    for icon_name in ["play", "pause", "resume", "infinity", "menu"]:
+        icon = pygame.image.load(os.path.join("icons", icon_name + ".png")).convert_alpha()
+        icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
+        icons[icon_name] = icon
+    icon = pygame.image.load(os.path.join("icons", "infinity.png")).convert_alpha()
+    icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
+    icon.set_alpha(100)
+    icons["no_infinity"] = icon
+
+    ############# BUTTONS #####################
+    global pause_button, autoplay_button, menu_button
+    pause_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (4 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
+    autoplay_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (2.5 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
+    menu_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - BUTTON_SIZE), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
+
+    ################### MENU #############################
+    theme = pm.Theme(widget_font=font, widget_margin = (SCREEN_WIDTH*0.08, 0.0))
+    global settings 
+    settings = pm.Menu(title="Settings", width=SCREEN_WIDTH*0.8, height=SCREEN_HEIGHT*0.8, theme = theme)
+    settings._theme.widget_font_color = (0, 0, 0)
+    settings._theme.widget_alignment = pm.locals.ALIGN_LEFT
+
+
+    settings.add.dropselect(title="Example:", items=all_examples, default = 0, dropselect_id="example")
+    settings.add.dropselect(title="Tree Mode:", items=[("Random", "rand"), ("Parsimony", "pars")], default = 0, dropselect_id="tree_mode")
+    settings.add.range_slider(title="Number of Trees:", default=64, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
+    settings.add.button(title="START", action=close_menu, button_id = "start")
+    settings.select_widget("start")
 
 
 
@@ -359,13 +375,14 @@ class Status:
     def load_image(self, path):
         self.image = pygame.image.load(path)
 #        self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
+        if self.best_index == self.current_index:
+            self.best_image = self.image
 
     def update_llh(self, llh):
         self.llh = llh
         if self.best_llh != self.best_llh or llh > self.best_llh:
             self.best_llh = llh
             self.best_index = self.current_index
-            self.best_image = self.image
 
     def update_from_msg(self, msg):
         self.tree = msg["tree"]
@@ -464,12 +481,11 @@ def mqtt_settings(loop, mqtt, s):
     run_once(loop)
     
 
-def main():
+def main(cfg):
     s = Status()
     clock = pygame.time.Clock()
     example_names = ["Frog", "Turtle", "Bird", "Human", "Cow", "Whale", "Mouse"] 
     
-    cfg = {}
     mqtt = MQTTClient(cfg)
     
     loop = asyncio.new_event_loop()
@@ -584,4 +600,6 @@ def main():
     loop.close()
     
 if __name__ == "__main__":
-    asyncio.run(main())
+    cfg = init_config()
+    init_pygame(cfg)
+    asyncio.run(main(cfg))
