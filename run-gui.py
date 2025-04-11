@@ -23,13 +23,13 @@ from PyQt5.QtGui import QImage
 orig_qimage_save = QImage.save
 
 def new_save(self, fileName, format=None, quality=None):
-#  print("monkey patched!")  
+#  print("monkey patched!")
   if not quality:
     quality = 100
   orig_qimage_save(self, fileName, format, quality)
-  
+
 QImage.save = new_save
-  
+
 #temp_dir="temp"
 temp_dir="/dev/shm/rxviz-temp"
 example_faces = {}
@@ -115,13 +115,17 @@ def draw_tree(newick, example, s):
 
 ######################## UI FUNCTIONS ##################################
 
+def draw_msa(screen, s):
+    msa_image = pygame.image.load(os.path.join("msa_plots", "animal.png"))
+    msa_image = pygame.transform.smoothscale(msa_image, (SCREEN_WIDTH - 2 * MSA_MARGIN, TOP_HEIGHT - 2 * MSA_MARGIN))
+    screen.blit(msa_image, (MSA_MARGIN, MSA_MARGIN))
 
 def draw_thumbnails(screen, s):
     for i in range(s.num_trees):
         row = i % s.thumbs_in_row
         col = i // s.thumbs_in_row
-        x_pos = LEFT_WIDTH + col * (s.thumb_size[0] + s.thumb_margin) + s.thumb_margin
-        y_pos = row * (s.thumb_size[1] + s.thumb_margin) + s.thumb_margin
+        x_pos = s.tn_xpos_offset + col * (s.thumb_size[0] + s.thumb_margin) + s.thumb_margin
+        y_pos = s.tn_ypos_offset + row * (s.thumb_size[1] + s.thumb_margin) + s.thumb_margin
         if i < len(s.thumbnails):
             thumbnail = s.thumbnails[i]
             screen.blit(thumbnail, (x_pos, y_pos))
@@ -177,14 +181,15 @@ def draw_bar(screen, s):
 def refresh(screen, s):
     screen.fill((255, 255, 255))
     if s.image is not None:
-        screen.blit(s.image, (TREE_MARGIN, TREE_MARGIN))
+        screen.blit(s.image, (s.tree_xpos, s.tree_ypos))
     draw_thumbnails(screen, s)
     draw_bar(screen, s)
+    draw_msa(screen, s)
     pygame.display.flip()
 
 def final_screen(screen, s):
     screen.fill((255, 255, 255))
-    screen.blit(s.best_image, (TREE_MARGIN, TREE_MARGIN))
+    screen.blit(s.best_image, (s.tree_xpos, s.tree_ypos))
     pygame.draw.rect(
         screen,
         GREEN_COLOR,
@@ -193,6 +198,7 @@ def final_screen(screen, s):
     )
     draw_thumbnails(screen, s)
     draw_bar(screen, s)
+    draw_msa(screen, s)
     pygame.display.flip()
 
 
@@ -219,6 +225,71 @@ def init_config():
 #    cfg["mqtt_host"] = args.broker
     return cfg
 
+<<<<<<< HEAD
+=======
+
+
+
+
+######################### SIZES ##################################################
+pygame.init()
+infoObject = pygame.display.Info()
+
+SCREEN_WIDTH = 1700
+SCREEN_HEIGHT = infoObject.current_h
+
+#screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+
+pygame.display.set_caption("VizRax")
+icon = pygame.image.load(os.path.join("icons", "horse.png"))
+pygame.display.set_icon(icon)
+
+#SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
+
+BAR_HEIGHT = int(SCREEN_HEIGHT * 0.2 * 0.8)
+BAR_MARGIN = int(SCREEN_HEIGHT * 0.2 * 0.2)
+BAR_Y_POS = SCREEN_HEIGHT - BAR_HEIGHT + BAR_MARGIN*0.5
+
+BUTTON_SIZE = int(min(SCREEN_WIDTH, SCREEN_HEIGHT) / 20)
+
+LEFT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
+RIGHT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
+TOP_HEIGHT = SCREEN_HEIGHT // 4
+BOTTOM_HEIGHT = SCREEN_HEIGHT - TOP_HEIGHT - BAR_HEIGHT
+TREE_MARGIN = min(LEFT_WIDTH, BOTTOM_HEIGHT) * 0.05
+MSA_MARGIN = SCREEN_WIDTH * 0.01
+
+#print(LEFT_WIDTH, RIGHT_WIDTH)
+
+
+#################### COLORS ####################
+GREEN_COLOR = (0, 180, 0)  # Green color for the box around thumbnails
+
+################## FONTS ######################################
+pygame.font.init()
+font = pygame.font.Font(os.path.join("fonts", 'MiriamLibre-Regular.ttf'), 30)
+
+
+
+################# ICONS #################################
+icons = {}
+for icon_name in ["play", "pause", "resume", "infinity", "menu"]:
+    icon = pygame.image.load(os.path.join("icons", icon_name + ".png")).convert_alpha()
+    icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
+    icons[icon_name] = icon
+icon = pygame.image.load(os.path.join("icons", "infinity.png")).convert_alpha()
+icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
+icon.set_alpha(100)
+icons["no_infinity"] = icon
+
+############# BUTTONS #####################
+pause_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (4 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
+autoplay_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (2.5 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
+menu_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - BUTTON_SIZE), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
+
+################### MENU #############################
+>>>>>>> 61e3ad4 (Start integrating MSA in UI)
 def close_menu():
     settings.disable()
 
@@ -335,6 +406,18 @@ class Status:
         self.thumbs_in_row = float("nan")
         self.thumb_size = float("nan")
         self.thumb_margin = float("nan")
+        if LEFT_WIDTH > BOTTOM_HEIGHT:
+            self.tree_xpos = TREE_MARGIN + (LEFT_WIDTH - BOTTOM_HEIGHT) / 2
+            self.tree_ypos = TOP_HEIGHT + TREE_MARGIN
+        else:
+            self.tree_xpos = TREE_MARGIN
+            self.tree_ypos = TOP_HEIGHT + TREE_MARGIN + (BOTTOM_HEIGHT - LEFT_WIDTH) / 2
+        if RIGHT_WIDTH > BOTTOM_HEIGHT:
+            self.tn_xpos_offset = LEFT_WIDTH + (RIGHT_WIDTH - BOTTOM_HEIGHT) / 2
+            self.tn_ypos_offset = TOP_HEIGHT
+        else:
+            self.tn_xpos_offset = LEFT_WIDTH
+            self.tn_ypos_offset = TOP_HEIGHT + (BOTTOM_HEIGHT - RIGHT_WIDTH) / 2
 
     def set_input_data(self, new_data):
         changed = False
@@ -348,7 +431,7 @@ class Status:
         if new_data["num_trees"] != self.num_trees:
             self.num_trees = int(new_data["num_trees"])
             self.thumbs_in_row = math.ceil(math.sqrt(self.num_trees))
-            thumb_full_size = int(RIGHT_WIDTH*0.9 / self.thumbs_in_row)
+            thumb_full_size = int(min(RIGHT_WIDTH, BOTTOM_HEIGHT) * 0.9 / self.thumbs_in_row)
             ts = int(thumb_full_size * 0.8)
             self.thumb_size = (ts, ts)
             self.thumb_margin = thumb_full_size - ts
@@ -358,7 +441,7 @@ class Status:
     def get_input_data(self):
       data = {"example": self.example, "tree_mode": self.tree_mode, "num_trees": self.num_trees }
       return data
-      
+
     def restart(self):
         self.done = False
 
@@ -374,9 +457,14 @@ class Status:
 
     def load_image(self, path):
         self.image = pygame.image.load(path)
+<<<<<<< HEAD
 #        self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
         if self.best_index == self.current_index:
             self.best_image = self.image
+=======
+        size = min(LEFT_WIDTH, BOTTOM_HEIGHT) - 2 * TREE_MARGIN
+        self.image = pygame.transform.smoothscale(self.image, (size, size))
+>>>>>>> 61e3ad4 (Start integrating MSA in UI)
 
     def update_llh(self, llh):
         self.llh = llh
@@ -402,7 +490,7 @@ class Status:
 class MQTTClient(object):
   recv_queue: asyncio.Queue
   send_queue: asyncio.Queue
-  
+
   def __init__(self, config):
     self.hostname = config.get("mqtt_host", "localhost")
     self.port = config.get("mqtt_port", 1883)
@@ -413,7 +501,7 @@ class MQTTClient(object):
     self.pub_fields = config.get("pubfields", None)
     if self.pub_fields:
       self.pub_fields = self.pub_fields.split(",")
-        
+
   async def spin(self):
     self.recv_queue = asyncio.Queue()
     self.send_queue = asyncio.Queue()
@@ -435,7 +523,7 @@ class MQTTClient(object):
               )
       except MqttError:
           print('MQTT error:')
-          await asyncio.sleep(5)  
+          await asyncio.sleep(5)
 
   async def handle_sub(self, client):
     if not self.sub_topic:
@@ -444,7 +532,7 @@ class MQTTClient(object):
     async for message in client.messages:
       data = json.loads(message.payload)
       self.recv_queue.put_nowait(data)
-    
+
   async def handle_pub(self, client):
     if not self.pub_topic:
       return
@@ -463,7 +551,7 @@ class MQTTClient(object):
 
   def put_msg(self, data):
     if self.pub_fields:
-      data = {key: data[key] for key in self.pub_fields} 
+      data = {key: data[key] for key in self.pub_fields}
     self.send_queue.put_nowait(data)
 
 
@@ -472,22 +560,28 @@ class MQTTClient(object):
 def run_once(loop):
     loop.call_soon(loop.stop)
     loop.run_forever()
-    
+
 def mqtt_settings(loop, mqtt, s):
     stgs = s.get_input_data()
     stgs["cmd"] = "settings"
 #    print(stgs)
     mqtt.put_msg(stgs)
     run_once(loop)
-    
+
 
 def main(cfg):
     s = Status()
     clock = pygame.time.Clock()
+<<<<<<< HEAD
     example_names = ["Frog", "Turtle", "Bird", "Human", "Cow", "Whale", "Mouse"] 
     
+=======
+    example_names = ["Frog", "Turtle", "Bird", "Human", "Cow", "Whale", "Mouse"]
+
+    cfg = {}
+>>>>>>> 61e3ad4 (Start integrating MSA in UI)
     mqtt = MQTTClient(cfg)
-    
+
     loop = asyncio.new_event_loop()
     t1 = loop.create_task(mqtt.spin())
     run_once(loop)
@@ -497,7 +591,7 @@ def main(cfg):
         s.set_input_data(settings.get_input_data())
         mqtt_settings(loop, mqtt, s)
         init_dir()
-        
+
         for name in example_names:
           example_faces[name] = faces.ImgFace(os.path.join("imgs", s.example, name + ".png"))
 
@@ -572,14 +666,14 @@ def main(cfg):
 
             else:
                 msg = mqtt.get_msg()
-                
+
                 if not msg:
                   continue
-                
+
 #                 print(msg)
 
                 s.update_from_msg(msg)
-                 
+
 #                execution_time = tt2 - tt1
 
                 #draw tree
@@ -598,7 +692,7 @@ def main(cfg):
         shutil.rmtree(temp_dir)
     pygame.quit()
     loop.close()
-    
+
 if __name__ == "__main__":
     cfg = init_config()
     init_pygame(cfg)
