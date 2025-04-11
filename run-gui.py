@@ -190,10 +190,11 @@ def refresh(screen, s):
 def final_screen(screen, s):
     screen.fill((255, 255, 255))
     screen.blit(s.best_image, (s.tree_xpos, s.tree_ypos))
+    size = min(LEFT_WIDTH, BOTTOM_HEIGHT) - 2 * TREE_MARGIN
     pygame.draw.rect(
         screen,
         GREEN_COLOR,
-        (TREE_MARGIN, TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN),
+        (s.tree_xpos, s.tree_ypos, size, size),
         2  # Border thickness
     )
     draw_thumbnails(screen, s)
@@ -220,13 +221,11 @@ def init_config():
     parser.add_argument("--width", type=int, default=argparse.SUPPRESS, help="Screen width in pixels")
     parser.add_argument("--height", type=int, default=argparse.SUPPRESS, help="Screen height in pixels")
     args = parser.parse_args()
-    
+
     cfg = vars(args)
 #    cfg["mqtt_host"] = args.broker
     return cfg
 
-<<<<<<< HEAD
-=======
 
 
 
@@ -289,7 +288,6 @@ autoplay_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (2.5 * BUTTON_SIZE)),
 menu_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - BUTTON_SIZE), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
 
 ################### MENU #############################
->>>>>>> 61e3ad4 (Start integrating MSA in UI)
 def close_menu():
     settings.disable()
 
@@ -339,7 +337,7 @@ def init_pygame(cfg):
 
 
     ################# ICONS #################################
-    global icons 
+    global icons
     icons = {}
     for icon_name in ["play", "pause", "resume", "infinity", "menu"]:
         icon = pygame.image.load(os.path.join("icons", icon_name + ".png")).convert_alpha()
@@ -358,7 +356,7 @@ def init_pygame(cfg):
 
     ################### MENU #############################
     theme = pm.Theme(widget_font=font, widget_margin = (SCREEN_WIDTH*0.08, 0.0))
-    global settings 
+    global settings
     settings = pm.Menu(title="Settings", width=SCREEN_WIDTH*0.8, height=SCREEN_HEIGHT*0.8, theme = theme)
     settings._theme.widget_font_color = (0, 0, 0)
     settings._theme.widget_alignment = pm.locals.ALIGN_LEFT
@@ -457,14 +455,10 @@ class Status:
 
     def load_image(self, path):
         self.image = pygame.image.load(path)
-<<<<<<< HEAD
-#        self.image = pygame.transform.smoothscale(self.image, (LEFT_WIDTH - 2*TREE_MARGIN, LEFT_WIDTH - 2 * TREE_MARGIN))
-        if self.best_index == self.current_index:
-            self.best_image = self.image
-=======
         size = min(LEFT_WIDTH, BOTTOM_HEIGHT) - 2 * TREE_MARGIN
         self.image = pygame.transform.smoothscale(self.image, (size, size))
->>>>>>> 61e3ad4 (Start integrating MSA in UI)
+        if self.best_index == self.current_index:
+            self.best_image = self.image
 
     def update_llh(self, llh):
         self.llh = llh
@@ -572,14 +566,8 @@ def mqtt_settings(loop, mqtt, s):
 def main(cfg):
     s = Status()
     clock = pygame.time.Clock()
-<<<<<<< HEAD
-    example_names = ["Frog", "Turtle", "Bird", "Human", "Cow", "Whale", "Mouse"] 
-    
-=======
     example_names = ["Frog", "Turtle", "Bird", "Human", "Cow", "Whale", "Mouse"]
 
-    cfg = {}
->>>>>>> 61e3ad4 (Start integrating MSA in UI)
     mqtt = MQTTClient(cfg)
 
     loop = asyncio.new_event_loop()
