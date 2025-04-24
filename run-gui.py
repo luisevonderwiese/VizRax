@@ -88,7 +88,7 @@ def draw_tree(newick, example, s):
     ts.show_leaf_name = False
     ts.show_scale = False
     ts.force_topology = True
-    TREE_PNG_SIZE = LEFT_WIDTH*0.9
+    TREE_PNG_SIZE = min(SCREEN_WIDTH, TREE_HEIGHT) * 0.9
     ts.scale = (TREE_PNG_SIZE * 1) / height(t)
     ts.branch_vertical_margin = 50
     path = os.path.join(temp_dir, "tree.png")
@@ -117,15 +117,19 @@ def draw_tree(newick, example, s):
 
 def draw_msa(screen, s):
     msa_image = pygame.image.load(os.path.join("msa_plots", "animal.png"))
-    msa_image = pygame.transform.smoothscale(msa_image, (SCREEN_WIDTH - 2 * MSA_MARGIN, TOP_HEIGHT - 2 * MSA_MARGIN))
-    screen.blit(msa_image, (MSA_MARGIN, MSA_MARGIN))
+    msa_image = pygame.transform.smoothscale(msa_image, (MSA_WIDTH - 2 * MSA_MARGIN, MSA_HEIGHT - 2 * MSA_MARGIN))
+    screen.blit(msa_image, (MSA_MARGIN + MSA_ICON_SIZE, MSA_MARGIN))
+    for i, icon in enumerate(["Frog", "Turtle", "Bird", "Human", "Cow", "Whale", "Mouse"]):
+        icon_image = pygame.image.load(os.path.join("imgs/animal", icon + ".png"))
+        icon_image = pygame.transform.smoothscale(icon_image, (MSA_ICON_SIZE * 0.8, MSA_ICON_SIZE * 0.8))
+        screen.blit(icon_image, (MSA_MARGIN + MSA_ICON_SIZE * 0.1, MSA_MARGIN + (i + 0.1) * MSA_ICON_SIZE))
 
 def draw_thumbnails(screen, s):
     for i in range(s.num_trees):
-        row = i % s.thumbs_in_row
-        col = i // s.thumbs_in_row
-        x_pos = s.tn_xpos_offset + col * (s.thumb_size[0] + s.thumb_margin) + s.thumb_margin
-        y_pos = s.tn_ypos_offset + row * (s.thumb_size[1] + s.thumb_margin) + s.thumb_margin
+        row = i // THUMBS_IN_A_ROW
+        col = i - row * THUMBS_IN_A_ROW
+        x_pos = s.tn_xpos_offset + col * (s.thumb_size[0] + s.thumb_margin) + s.thumb_margin / 2
+        y_pos = s.tn_ypos_offset + row * (s.thumb_size[1] + s.thumb_margin) + s.thumb_margin / 2
         if i < len(s.thumbnails):
             thumbnail = s.thumbnails[i]
             screen.blit(thumbnail, (x_pos, y_pos))
@@ -190,7 +194,7 @@ def refresh(screen, s):
 def final_screen(screen, s):
     screen.fill((255, 255, 255))
     screen.blit(s.best_image, (s.tree_xpos, s.tree_ypos))
-    size = min(LEFT_WIDTH, BOTTOM_HEIGHT) - 2 * TREE_MARGIN
+    size = min(SCREEN_WIDTH, TREE_HEIGHT) - 2 * TREE_MARGIN
     pygame.draw.rect(
         screen,
         GREEN_COLOR,
@@ -244,64 +248,24 @@ pygame.display.set_caption("VizRax")
 icon = pygame.image.load(os.path.join("icons", "horse.png"))
 pygame.display.set_icon(icon)
 
-#SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
 
-BAR_HEIGHT = int(SCREEN_HEIGHT * 0.2 * 0.8)
-BAR_MARGIN = int(SCREEN_HEIGHT * 0.2 * 0.2)
-BAR_Y_POS = SCREEN_HEIGHT - BAR_HEIGHT + BAR_MARGIN*0.5
-
-BUTTON_SIZE = int(min(SCREEN_WIDTH, SCREEN_HEIGHT) / 20)
-
-LEFT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
-RIGHT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
-TOP_HEIGHT = SCREEN_HEIGHT // 4
-BOTTOM_HEIGHT = SCREEN_HEIGHT - TOP_HEIGHT - BAR_HEIGHT
-TREE_MARGIN = min(LEFT_WIDTH, BOTTOM_HEIGHT) * 0.05
-MSA_MARGIN = SCREEN_WIDTH * 0.01
-
-#print(LEFT_WIDTH, RIGHT_WIDTH)
-
-
-#################### COLORS ####################
-GREEN_COLOR = (0, 180, 0)  # Green color for the box around thumbnails
-
-################## FONTS ######################################
-pygame.font.init()
-font = pygame.font.Font(os.path.join("fonts", 'MiriamLibre-Regular.ttf'), 30)
-
-
-
-################# ICONS #################################
-icons = {}
-for icon_name in ["play", "pause", "resume", "infinity", "menu"]:
-    icon = pygame.image.load(os.path.join("icons", icon_name + ".png")).convert_alpha()
-    icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
-    icons[icon_name] = icon
-icon = pygame.image.load(os.path.join("icons", "infinity.png")).convert_alpha()
-icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
-icon.set_alpha(100)
-icons["no_infinity"] = icon
-
-############# BUTTONS #####################
-pause_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (4 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
-autoplay_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - (2.5 * BUTTON_SIZE)), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
-menu_button = pygame.Rect((SCREEN_WIDTH - BAR_MARGIN - BUTTON_SIZE), BAR_Y_POS, BUTTON_SIZE, BUTTON_SIZE)
 
 ################### MENU #############################
 def close_menu():
     settings.disable()
 
 def init_pygame(cfg):
-    global SCREEN_WIDTH, SCREEN_HEIGHT, BAR_HEIGHT, BAR_MARGIN, BAR_Y_POS
-    global LEFT_WIDTH, RIGHT_WIDTH, TREE_MARGIN, screen
+
     ######################### SIZES ##################################################
     pygame.init()
     infoObject = pygame.display.Info()
 
     print(cfg)
+    global SCREEN_WIDTH, SCREEN_HEIGHT
     SCREEN_WIDTH = cfg.get("width", infoObject.current_w)
     SCREEN_HEIGHT = cfg.get("height", infoObject.current_h)
 
+    global screen
     #screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
 
@@ -309,20 +273,28 @@ def init_pygame(cfg):
     icon = pygame.image.load(os.path.join("icons", "horse.png"))
     pygame.display.set_icon(icon)
 
-    #SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()
-
+    global BAR_HEIGHT, BAR_MARGIN, BAR_Y_POS, BUTTON_SIZE
     BAR_HEIGHT = int(SCREEN_HEIGHT * 0.2 * 0.8)
     BAR_MARGIN = int(SCREEN_HEIGHT * 0.2 * 0.2)
-    BAR_Y_POS = SCREEN_HEIGHT - BAR_HEIGHT + BAR_MARGIN*0.5
-
+    BAR_Y_POS = SCREEN_HEIGHT - BAR_HEIGHT + BAR_MARGIN * 0.5
     BUTTON_SIZE = int(min(SCREEN_WIDTH, SCREEN_HEIGHT) / 20)
 
-    LEFT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
-    RIGHT_WIDTH = min(SCREEN_WIDTH // 2, SCREEN_HEIGHT - (BAR_HEIGHT + BAR_MARGIN))
-    #TREE_MARGIN = LEFT_WIDTH * 0.1
-    TREE_MARGIN = LEFT_WIDTH * 0.05
+    global MSA_HEIGHT, MSA_MARGIN, MSA_ICON_SIZE, MSA_WIDTH
+    MSA_HEIGHT = SCREEN_HEIGHT // 4
+    MSA_MARGIN = SCREEN_WIDTH * 0.01
+    MSA_ICON_SIZE = (MSA_HEIGHT - (2 * MSA_MARGIN)) // 7
+    MSA_WIDTH = SCREEN_WIDTH - MSA_ICON_SIZE
 
-    #print(LEFT_WIDTH, RIGHT_WIDTH)
+
+    global THUMBNAIL_HEIGHT, THUMBNAIL_MARGIN, THUMBS_IN_A_ROW, THUMBS_IN_A_COL
+    THUMBNAIL_HEIGHT = SCREEN_HEIGHT // 4
+    THUMBNAIL_MARGIN = SCREEN_WIDTH * 0.01
+    THUMBS_IN_A_ROW = 20
+    THUMBS_IN_A_COL = 5
+
+    global TREE_HEIGHT, TREE_MARGIN
+    TREE_HEIGHT = SCREEN_HEIGHT - BAR_HEIGHT - MSA_HEIGHT - THUMBNAIL_HEIGHT
+    TREE_MARGIN = min(SCREEN_WIDTH, TREE_HEIGHT) * 0.05
 
 
     #################### COLORS ####################
@@ -364,7 +336,7 @@ def init_pygame(cfg):
 
     settings.add.dropselect(title="Example:", items=all_examples, default = 0, dropselect_id="example")
     settings.add.dropselect(title="Tree Mode:", items=[("Random", "rand"), ("Parsimony", "pars")], default = 0, dropselect_id="tree_mode")
-    settings.add.range_slider(title="Number of Trees:", default=64, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
+    settings.add.range_slider(title="Number of Trees:", default=100, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
     settings.add.button(title="START", action=close_menu, button_id = "start")
     settings.select_widget("start")
 
@@ -401,21 +373,14 @@ class Status:
         self.image = None
         self.thumbnails = []
 
-        self.thumbs_in_row = float("nan")
         self.thumb_size = float("nan")
         self.thumb_margin = float("nan")
-        if LEFT_WIDTH > BOTTOM_HEIGHT:
-            self.tree_xpos = TREE_MARGIN + (LEFT_WIDTH - BOTTOM_HEIGHT) / 2
-            self.tree_ypos = TOP_HEIGHT + TREE_MARGIN
+        if SCREEN_WIDTH > TREE_HEIGHT:
+            self.tree_xpos = TREE_MARGIN + (SCREEN_WIDTH - TREE_HEIGHT) / 2
+            self.tree_ypos = MSA_HEIGHT + TREE_MARGIN
         else:
             self.tree_xpos = TREE_MARGIN
-            self.tree_ypos = TOP_HEIGHT + TREE_MARGIN + (BOTTOM_HEIGHT - LEFT_WIDTH) / 2
-        if RIGHT_WIDTH > BOTTOM_HEIGHT:
-            self.tn_xpos_offset = LEFT_WIDTH + (RIGHT_WIDTH - BOTTOM_HEIGHT) / 2
-            self.tn_ypos_offset = TOP_HEIGHT
-        else:
-            self.tn_xpos_offset = LEFT_WIDTH
-            self.tn_ypos_offset = TOP_HEIGHT + (BOTTOM_HEIGHT - RIGHT_WIDTH) / 2
+            self.tree_ypos = MSA_HEIGHT + TREE_MARGIN + (TREE_HEIGHT - SCREEN_WIDTH) / 2
 
     def set_input_data(self, new_data):
         changed = False
@@ -428,11 +393,12 @@ class Status:
             changed = True
         if new_data["num_trees"] != self.num_trees:
             self.num_trees = int(new_data["num_trees"])
-            self.thumbs_in_row = math.ceil(math.sqrt(self.num_trees))
-            thumb_full_size = int(min(RIGHT_WIDTH, BOTTOM_HEIGHT) * 0.9 / self.thumbs_in_row)
+            thumb_full_size = int(min((SCREEN_WIDTH - 2 * THUMBNAIL_MARGIN) / THUMBS_IN_A_ROW, (THUMBNAIL_HEIGHT - 2 * THUMBNAIL_MARGIN) / (THUMBS_IN_A_COL)))
             ts = int(thumb_full_size * 0.8)
             self.thumb_size = (ts, ts)
             self.thumb_margin = thumb_full_size - ts
+            self.tn_xpos_offset = (SCREEN_WIDTH - (THUMBS_IN_A_ROW * thumb_full_size)) / 2
+            self.tn_ypos_offset = MSA_HEIGHT + TREE_HEIGHT + (THUMBNAIL_HEIGHT - (THUMBS_IN_A_COL * thumb_full_size)) / 2
             changed = True
         return changed
 
@@ -455,7 +421,7 @@ class Status:
 
     def load_image(self, path):
         self.image = pygame.image.load(path)
-        size = min(LEFT_WIDTH, BOTTOM_HEIGHT) - 2 * TREE_MARGIN
+        size = min(SCREEN_WIDTH, TREE_HEIGHT) - 2 * TREE_MARGIN
         self.image = pygame.transform.smoothscale(self.image, (size, size))
         if self.best_index == self.current_index:
             self.best_image = self.image
