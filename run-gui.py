@@ -178,8 +178,8 @@ def draw_bar(screen, s):
         screen.blit(icons["infinity"], icons["infinity"].get_rect(center = autoplay_button.center))
     else:
         screen.blit(icons["no_infinity"], icons["no_infinity"].get_rect(center = autoplay_button.center))
-    pygame.draw.rect(screen, (255, 255, 255), menu_button)
-    screen.blit(icons["menu"], icons["menu"].get_rect(center = menu_button.center))
+#    pygame.draw.rect(screen, (255, 255, 255), menu_button)
+#    screen.blit(icons["menu"], icons["menu"].get_rect(center = menu_button.center))
 
 
 def refresh(screen, s):
@@ -224,6 +224,7 @@ def init_config():
     parser.add_argument("--broker", type=str, default="localhost", dest="mqtt_host", help="Address of the MQTT server")
     parser.add_argument("--width", type=int, default=argparse.SUPPRESS, help="Screen width in pixels")
     parser.add_argument("--height", type=int, default=argparse.SUPPRESS, help="Screen height in pixels")
+    parser.add_argument("--nomenu", dest="showmenu", action="store_false", help="Do not show Settings dialog before start")
     args = parser.parse_args()
 
     cfg = vars(args)
@@ -238,11 +239,11 @@ def init_config():
 pygame.init()
 infoObject = pygame.display.Info()
 
-SCREEN_WIDTH = 1700
-SCREEN_HEIGHT = infoObject.current_h
+#SCREEN_WIDTH = 1700
+#SCREEN_HEIGHT = infoObject.current_h
 
 #screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+#screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
 
 pygame.display.set_caption("VizRax")
 icon = pygame.image.load(os.path.join("icons", "horse.png"))
@@ -335,7 +336,7 @@ def init_pygame(cfg):
 
 
     settings.add.dropselect(title="Example:", items=all_examples, default = 0, dropselect_id="example")
-    settings.add.dropselect(title="Tree Mode:", items=[("Random", "rand"), ("Parsimony", "pars")], default = 0, dropselect_id="tree_mode")
+    settings.add.dropselect(title="Tree Mode:", items=[("Random", "rand"), ("Parsimony", "pars")], default = 1, dropselect_id="tree_mode")
     settings.add.range_slider(title="Number of Trees:", default=100, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
     settings.add.button(title="START", action=close_menu, button_id = "start")
     settings.select_widget("start")
@@ -541,7 +542,8 @@ def main(cfg):
     run_once(loop)
 
     if s.example == "": #open menu at the beginning
-        settings.mainloop(screen)
+        if cfg["showmenu"]:
+          settings.mainloop(screen)
         s.set_input_data(settings.get_input_data())
         mqtt_settings(loop, mqtt, s)
         init_dir()
@@ -552,6 +554,10 @@ def main(cfg):
         refresh(screen, s)
 
     mqtt.put_msg({"cmd": "restart"})
+
+    # Enable infinite autoplay by default
+    s.autoplay = True
+    screen.blit(icons["infinity"], icons["infinity"].get_rect(center = autoplay_button.center))
 
     while s.running:
         run_once(loop)

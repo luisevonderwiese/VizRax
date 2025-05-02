@@ -75,7 +75,7 @@ def to_string(num):
 ######################### DATA SETTINGS #######################################
 
 all_examples = [("Animals", "animal"), ("Languages", "language"), ("Horses", "horse")]
-models = {"language" : "BIN+G", "animal" : "GTR+G400", "horse" : "GTR+G"}
+models = {"language" : "BIN+G400", "animal" : "GTR+G80", "horse" : "GTR+G400"}
 
 
 
