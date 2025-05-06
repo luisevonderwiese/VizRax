@@ -25,9 +25,9 @@ class Status:
         self.done = False
         self.paused = True
 
-        self.example = ""
-        self.tree_mode = ""
-        self.num_trees = float("nan")
+        self.example = "animal"
+        self.tree_mode = "pars"
+        self.num_trees = 100
 
         self.current_index = 0
         self.best_index = -1
@@ -36,19 +36,6 @@ class Status:
         self.llh = float("nan")
         self.tree = ""
 
-    def set_input_data(self, new_data):
-        changed = False
-#        new_data = settings.get_input_data()
-        if new_data["example"] != self.example:
-            self.example = new_data["example"]
-            changed = True
-        if new_data["tree_mode"] != self.tree_mode:
-            self.tree_mode = new_data["tree_mode"]
-            changed = True
-        if new_data["num_trees"] != self.num_trees:
-            self.num_trees = int(new_data["num_trees"])
-            changed = True
-        return changed
 
     def restart(self):
         self.done = False
@@ -91,7 +78,7 @@ s = Status()
 class MQTTClient(object):
   recv_queue: asyncio.Queue
   send_queue: asyncio.Queue
-  
+
   def __init__(self, config):
     self.hostname = config.get("mqtt_host", "localhost")
     self.port = config.get("mqtt_port", 1883)
@@ -102,7 +89,7 @@ class MQTTClient(object):
     self.pub_fields = config.get("pubfields", None)
     if self.pub_fields:
       self.pub_fields = self.pub_fields.split(",")
-        
+
   async def spin(self):
     self.recv_queue = asyncio.Queue()
     self.send_queue = asyncio.Queue()
@@ -124,7 +111,7 @@ class MQTTClient(object):
               )
       except MqttError:
           print('MQTT error:')
-          await asyncio.sleep(5)  
+          await asyncio.sleep(5)
 
   async def handle_sub(self, client):
     if not self.sub_topic:
@@ -134,7 +121,7 @@ class MQTTClient(object):
       data = json.loads(message.payload)
       print(data)
       self.recv_queue.put_nowait(data)
-    
+
   async def handle_pub(self, client):
     if not self.pub_topic:
       return
@@ -153,7 +140,7 @@ class MQTTClient(object):
 
   def put_msg(self, data):
     if self.pub_fields:
-      data = {key: data[key] for key in self.pub_fields} 
+      data = {key: data[key] for key in self.pub_fields}
     self.send_queue.put_nowait(data)
 
 class RaxmlRunner:
@@ -161,7 +148,7 @@ class RaxmlRunner:
   def __init__(self, config, mqtt):
 #    self.hostname = config.get("host", "localhost")
     self.mqtt = mqtt
-    
+
   async def async_run(self, cmd):
     proc = await asyncio.create_subprocess_shell(
         cmd,
@@ -187,7 +174,7 @@ class RaxmlRunner:
         with open(os.path.join(temp_dir, "generate.raxml.startTree." + str(idx)), "w") as outfile:
           outfile.write(line)
         idx += 1
- 
+
   async def run_eval(self):
     #evaluate tree
     command = "./raxml-ng --evaluate "
@@ -237,8 +224,7 @@ class RaxmlRunner:
         s.paused = True
       elif data["cmd"] == "restart":
         s.restart()
-      elif data["cmd"] == "settings":
-        s.set_input_data(data)
+      elif data["cmd"] == "first_start":
         await self.run_generate()
 
   async def spin(self):
@@ -257,31 +243,28 @@ def init_config():
     parser = argparse.ArgumentParser(description="VizRax backend")
     parser.add_argument("--broker", type=str, default="localhost", help="Address of the MQTT server")
     args = parser.parse_args()
-    
+
     cfg = {}
     cfg["mqtt_host"] = args.broker
     return cfg
 
 async def main():
     cfg = init_config()
-    
+
     if os.path.isdir(temp_dir):
         shutil.rmtree(temp_dir)
-    os.makedirs(temp_dir)    
+    os.makedirs(temp_dir)
 
     mqtt = MQTTClient(cfg)
     rax = RaxmlRunner(cfg, mqtt)
-    
-    settings = { "example": "animal", "tree_mode": "rand", "num_trees": 100}
-    s.set_input_data(settings)
-    
+
     spins = [mqtt.spin(), rax.spin()]
     tasks = [asyncio.create_task(t) for t in spins]
     for t in tasks:
-      await t    
+      await t
 
     if os.path.isdir(temp_dir):
       shutil.rmtree(temp_dir)
-  
-if __name__ == '__main__':    
-    asyncio.run(main())    
+
+if __name__ == '__main__':
+    asyncio.run(main())
