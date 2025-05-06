@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pygame
+import pygame_menu as pm
 import os
 import shutil
 import math
@@ -16,7 +17,6 @@ import asyncio
 from aiomqtt import Client, MqttError
 
 import numpy as np
-import pygame_menu as pm
 
 from PyQt5.QtGui import QImage
 
@@ -178,9 +178,6 @@ def draw_bar(screen, s):
         screen.blit(icons["infinity"], icons["infinity"].get_rect(center = autoplay_button.center))
     else:
         screen.blit(icons["no_infinity"], icons["no_infinity"].get_rect(center = autoplay_button.center))
-#    pygame.draw.rect(screen, (255, 255, 255), menu_button)
-#    screen.blit(icons["menu"], icons["menu"].get_rect(center = menu_button.center))
-
 
 def refresh(screen, s):
     screen.fill((255, 255, 255))
@@ -212,8 +209,6 @@ def final_screen(screen, s):
 all_examples = [("Animals", "animal"), ("Languages", "language"), ("Horses", "horse")]
 models = {"language" : "BIN+G", "animal" : "GTR+G", "horse" : "GTR+G"}
 
-
-
 def init_dir():
     if os.path.isdir(temp_dir):
         shutil.rmtree(temp_dir)
@@ -231,26 +226,6 @@ def init_config():
 #    cfg["mqtt_host"] = args.broker
     return cfg
 
-
-
-
-
-######################### SIZES ##################################################
-pygame.init()
-infoObject = pygame.display.Info()
-
-#SCREEN_WIDTH = 1700
-#SCREEN_HEIGHT = infoObject.current_h
-
-#screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.RESIZABLE)
-#screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
-
-pygame.display.set_caption("VizRax")
-icon = pygame.image.load(os.path.join("icons", "horse.png"))
-pygame.display.set_icon(icon)
-
-
-
 ################### MENU #############################
 def close_menu():
     settings.disable()
@@ -261,7 +236,7 @@ def init_pygame(cfg):
     pygame.init()
     infoObject = pygame.display.Info()
 
-    print(cfg)
+#    print(cfg)
     global SCREEN_WIDTH, SCREEN_HEIGHT
     SCREEN_WIDTH = cfg.get("width", infoObject.current_w)
     SCREEN_HEIGHT = cfg.get("height", infoObject.current_h)
@@ -312,7 +287,7 @@ def init_pygame(cfg):
     ################# ICONS #################################
     global icons
     icons = {}
-    for icon_name in ["play", "pause", "resume", "infinity", "menu"]:
+    for icon_name in ["play", "pause", "resume", "infinity"]:
         icon = pygame.image.load(os.path.join("icons", icon_name + ".png")).convert_alpha()
         icon = pygame.transform.smoothscale(icon, (BUTTON_SIZE, BUTTON_SIZE))
         icons[icon_name] = icon
@@ -334,14 +309,11 @@ def init_pygame(cfg):
     settings._theme.widget_font_color = (0, 0, 0)
     settings._theme.widget_alignment = pm.locals.ALIGN_LEFT
 
-
     settings.add.dropselect(title="Example:", items=all_examples, default = 0, dropselect_id="example")
     settings.add.dropselect(title="Tree Mode:", items=[("Random", "rand"), ("Parsimony", "pars")], default = 1, dropselect_id="tree_mode")
     settings.add.range_slider(title="Number of Trees:", default=100, range_values=(9, 900), increment=1, value_format=lambda x: str(int(x)), rangeslider_id="num_trees")
     settings.add.button(title="START", action=close_menu, button_id = "start")
     settings.select_widget("start")
-
-
 
 ################### DEFAULTS ###########################
 
@@ -354,14 +326,9 @@ class Status:
     # default constructor
     def __init__(self):
         self.running = True
-        self.autoplay = False
+        self.autoplay = True
         self.done = False
         self.paused = True
-
-        self.example = ""
-        self.tree_mode = ""
-        self.tree = ""
-        self.num_trees = float("nan")
 
         self.current_index = 0
         self.best_index = -1
@@ -371,11 +338,21 @@ class Status:
         self.llh = float("nan")
         self.time = 0
 
+        self.example = "animal"
+        self.tree_mode = "pars"
+        self.num_trees = 100
+        self.tree = ""
+
         self.image = None
         self.thumbnails = []
 
-        self.thumb_size = float("nan")
-        self.thumb_margin = float("nan")
+        thumb_full_size = int(min((SCREEN_WIDTH - 2 * THUMBNAIL_MARGIN) / THUMBS_IN_A_ROW, (THUMBNAIL_HEIGHT - 2 * THUMBNAIL_MARGIN) / (THUMBS_IN_A_COL)))
+        ts = int(thumb_full_size * 0.8)
+        self.thumb_size = (ts, ts)
+        self.thumb_margin = thumb_full_size - ts
+        self.tn_xpos_offset = (SCREEN_WIDTH - (THUMBS_IN_A_ROW * thumb_full_size)) / 2
+        self.tn_ypos_offset = MSA_HEIGHT + TREE_HEIGHT + (THUMBNAIL_HEIGHT - (THUMBS_IN_A_COL * thumb_full_size)) / 2
+
         if SCREEN_WIDTH > TREE_HEIGHT:
             self.tree_xpos = TREE_MARGIN + (SCREEN_WIDTH - TREE_HEIGHT) / 2
             self.tree_ypos = MSA_HEIGHT + TREE_MARGIN
@@ -529,7 +506,6 @@ def mqtt_settings(loop, mqtt, s):
     mqtt.put_msg(stgs)
     run_once(loop)
 
-
 def main(cfg):
     s = Status()
     clock = pygame.time.Clock()
@@ -541,23 +517,24 @@ def main(cfg):
     t1 = loop.create_task(mqtt.spin())
     run_once(loop)
 
-    if s.example == "": #open menu at the beginning
-        if cfg["showmenu"]:
-          settings.mainloop(screen)
+    #open menu at the beginning
+    if cfg["showmenu"]:
+        settings.mainloop(screen)
         s.set_input_data(settings.get_input_data())
         mqtt_settings(loop, mqtt, s)
-        init_dir()
 
-        for name in example_names:
-          example_faces[name] = faces.ImgFace(os.path.join("imgs", s.example, name + ".png"))
+    init_dir()
 
-        refresh(screen, s)
+    for name in example_names:
+         example_faces[name] = faces.ImgFace(os.path.join("imgs", s.example, name + ".png"))
 
-    mqtt.put_msg({"cmd": "restart"})
+    refresh(screen, s)
+
+    mqtt.put_msg({"cmd": "first_start"})
 
     # Enable infinite autoplay by default
-    s.autoplay = True
-    screen.blit(icons["infinity"], icons["infinity"].get_rect(center = autoplay_button.center))
+#    s.autoplay = True
+#    screen.blit(icons["infinity"], icons["infinity"].get_rect(center = autoplay_button.center))
 
     while s.running:
         run_once(loop)
@@ -597,16 +574,6 @@ def main(cfg):
                         screen.blit(icons["infinity"], icons["infinity"].get_rect(center = autoplay_button.center))
                         s.autoplay = True
                     pygame.display.update(r)
-                if menu_button.collidepoint(pos):
-                    settings.enable()
-                    settings.mainloop(screen)
-                    changed = s.set_input_data(settings.get_input_data())
-                    if changed:
-                        mqtt_settings(loop, mqtt, s)
-                        init_dir()
-                        s.restart()
-                    s.paused = True
-                    refresh(screen, s)
 
         if not s.paused and not s.done:
             if s.current_index == s.num_trees:
